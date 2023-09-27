@@ -1,0 +1,95 @@
+#include <FastLED.h>
+#include <Arduino.h>
+
+#define DATA_PIN 3
+#define LED_TYPE WS2811
+#define COLOR_ORDER GRB
+#define NUM_LEDS 40
+CRGB leds[NUM_LEDS];
+
+#define BRIGHTNESS 96
+
+void setup() {
+  Serial.begin(9600);
+  delay(3000);
+  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.setBrightness(BRIGHTNESS);
+}
+
+
+double magicGradientR(int val)
+{
+  return 0.1 + 0.9 * abs(sin((double)val * 0.05));
+}
+
+double magicGradientB(int val)
+{
+  return 0.1 + 0.9 * abs(sin((double)val * 0.09));
+}
+
+double magicGradientG(int val)
+{
+  return 0.1 + 0.9 * abs(sin((double)val * 0.14));
+}
+
+double currLoudness = 0;
+double prevLoudness = 0;
+double loudness = 0;
+
+void loop() {
+  double newSig = (analogRead(A0) - 512);
+  // normalize the signal, the loudness is now from zero to 512.
+  double newSigAbs = abs(newSig);
+  // take the louder of the last signal or the current signal
+  loudness = max(newSigAbs, loudness);
+
+ loudness -= 5;
+ if (loudness > 255) { // stops brightness from exeading 255
+    loudness = 255;
+  }
+
+  // decay
+  //loudness -= 1;
+  if(loudness < 0)
+  {
+    loudness = 0;
+  }
+  Serial.println(loudness);
+
+  if (prevLoudness > loudness) {
+    currLoudness = prevLoudness;
+  }
+  else {
+    currLoudness = loudness;
+  }
+
+  if ((loudness > prevLoudness) && (loudness > 150)) {
+    currLoudness -= 50;
+    prevLoudness = currLoudness;
+  loudness = currLoudness;
+  }
+
+  for(int i = 0; i != NUM_LEDS; ++i)
+  {
+    leds[i].setRGB(
+      min(256, currLoudness * 8),
+      min(256, currLoudness * 8),
+      min(256, currLoudness * 8));
+  }
+//
+/*fancy mode
+  for(int i = 0; i != NUM_LEDS; ++i)
+  {
+    leds[i].setRGB(
+      min(256, (int)(double(prevLoudness) * magicGradientR(ctr+i))),
+      min(256, (int)(double(prevLoudness) * magicGradientG(ctr+i))),
+      min(256, (int)(double(prevLoudness) * magicGradientB(ctr+i)))
+      );
+  }
+end off fancy mode */
+  
+  //delay(10);
+  FastLED.show();
+
+  prevLoudness = currLoudness - 0.1;
+}
